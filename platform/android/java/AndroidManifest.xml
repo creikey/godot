@@ -14,6 +14,7 @@
 <!--glEsVersion is modified by the exporter, changing this value here has no effect-->
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 <!--Adding custom text to manifest is fine, but do it outside the custom user and application BEGIN/END regions, as that gets rewritten-->
+    <uses-feature android:name="android.hardware.vr.headtracking" android:required="false" android:version="1"/>
 
 <!--Custom permissions XML added by add-ons. It's recommended to add them from the export preset, though-->
 <!--CHUNK_USER_PERMISSIONS_BEGIN-->
