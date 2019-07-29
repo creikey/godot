@@ -847,6 +847,85 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 					uint32_t name = decode_uint32(&p_manifest[iofs + 12]);
 					String tname = string_table[name];
 
+					if (tname == "uses-feature") {
+						print_line("FOUND END OF USES FEATURE!");
+
+						// save manifest ending so we can restore it
+						Vector<uint8_t> manifest_end;
+						uint32_t manifest_cur_size = p_manifest.size();
+
+						manifest_end.resize(p_manifest.size() - ofs);
+						memcpy(manifest_end.ptrw(), &p_manifest[ofs], manifest_end.size());
+
+						int32_t attr_name_string = string_table.find("name");
+						ERR_EXPLAIN("Template does not have 'name' attribute");
+						ERR_FAIL_COND(attr_name_string == -1);
+
+						int32_t ns_android_string = string_table.find("android");
+						ERR_EXPLAIN("Template does not have 'android' namespace");
+						ERR_FAIL_COND(ns_android_string == -1);
+
+						int32_t attr_uses_permission_string = string_table.find("uses-feature");
+						if (attr_uses_permission_string == -1) {
+							string_table.push_back("uses-feature");
+							attr_uses_permission_string = string_table.size() - 1;
+						}
+
+						// for (int i = 0; i < perms.size(); ++i) {
+						{
+							String perm_raw_string = "android.hardware.vr.headtracking";
+							print_line("Adding permission " + perm_raw_string);
+
+							manifest_cur_size += 56 + 24; // node + end node
+							p_manifest.resize(manifest_cur_size);
+
+							// Add permission to the string pool
+							int32_t perm_string = string_table.find(perm_raw_string);
+							if (perm_string == -1) {
+								string_table.push_back(perm_raw_string);
+								perm_string = string_table.size() - 1;
+							}
+
+							// start tag
+							encode_uint16(0x102, &p_manifest.write[ofs]); // type
+							encode_uint16(16, &p_manifest.write[ofs + 2]); // headersize
+							encode_uint32(56, &p_manifest.write[ofs + 4]); // size
+							encode_uint32(0, &p_manifest.write[ofs + 8]); // lineno
+							encode_uint32(-1, &p_manifest.write[ofs + 12]); // comment
+							encode_uint32(-1, &p_manifest.write[ofs + 16]); // ns
+							encode_uint32(attr_uses_permission_string, &p_manifest.write[ofs + 20]); // name
+							encode_uint16(20, &p_manifest.write[ofs + 24]); // attr_start
+							encode_uint16(20, &p_manifest.write[ofs + 26]); // attr_size
+							encode_uint16(1, &p_manifest.write[ofs + 28]); // num_attrs
+							encode_uint16(0, &p_manifest.write[ofs + 30]); // id_index
+							encode_uint16(0, &p_manifest.write[ofs + 32]); // class_index
+							encode_uint16(0, &p_manifest.write[ofs + 34]); // style_index
+
+							// attribute
+							encode_uint32(ns_android_string, &p_manifest.write[ofs + 36]); // ns
+							encode_uint32(attr_name_string, &p_manifest.write[ofs + 40]); // 'name'
+							encode_uint32(perm_string, &p_manifest.write[ofs + 44]); // raw_value
+							encode_uint16(8, &p_manifest.write[ofs + 48]); // typedvalue_size
+							p_manifest.write[ofs + 50] = 0; // typedvalue_always0
+							p_manifest.write[ofs + 51] = 0x03; // typedvalue_type (string)
+							encode_uint32(perm_string, &p_manifest.write[ofs + 52]); // typedvalue reference
+
+							ofs += 56;
+
+							// end tag
+							encode_uint16(0x103, &p_manifest.write[ofs]); // type
+							encode_uint16(16, &p_manifest.write[ofs + 2]); // headersize
+							encode_uint32(24, &p_manifest.write[ofs + 4]); // size
+							encode_uint32(0, &p_manifest.write[ofs + 8]); // lineno
+							encode_uint32(-1, &p_manifest.write[ofs + 12]); // comment
+							encode_uint32(-1, &p_manifest.write[ofs + 16]); // ns
+							encode_uint32(attr_uses_permission_string, &p_manifest.write[ofs + 20]); // name
+
+							ofs += 24;
+						}
+						memcpy(&p_manifest.write[ofs], manifest_end.ptr(), manifest_end.size());
+						print_line("Adding back end...");
+					}
 					if (tname == "manifest") {
 
 						// save manifest ending so we can restore it
@@ -953,6 +1032,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 		for (int i = 0; i < string_table.size(); i++) {
 
 			String s = string_table[i];
+			print_line(s);
 			encode_uint16(s.length(), chars);
 			chars += 2;
 			for (int j = 0; j < s.length(); j++) {
