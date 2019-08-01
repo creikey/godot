@@ -849,6 +849,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 
 					if (tname == "uses-feature") {
 						print_line("FOUND END OF USES FEATURE!");
+						ofs += 24;
 
 						// save manifest ending so we can restore it
 						Vector<uint8_t> manifest_end;
@@ -861,7 +862,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 						ERR_EXPLAIN("Template does not have 'name' attribute");
 						ERR_FAIL_COND(attr_name_string == -1);
 
-						int32_t ns_android_string = string_table.find("android");
+						int32_t ns_android_string = string_table.find("http://schemas.android.com/apk/res/android");
 						ERR_EXPLAIN("Template does not have 'android' namespace");
 						ERR_FAIL_COND(ns_android_string == -1);
 
@@ -876,7 +877,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 							String perm_raw_string = "android.hardware.vr.headtracking";
 							print_line("Adding permission " + perm_raw_string);
 
-							manifest_cur_size += 56 + 24; // node + end node
+							manifest_cur_size += 76 + 24; // node + end node
 							p_manifest.resize(manifest_cur_size);
 
 							// Add permission to the string pool
@@ -886,17 +887,29 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 								perm_string = string_table.size() - 1;
 							}
 
+							int32_t key_string = string_table.find("required");
+							if (key_string == -1) {
+								string_table.push_back("required");
+								key_string = string_table.size() - 1;
+							}
+
+							int32_t value_string = string_table.find("false");
+							if (value_string == -1) {
+								string_table.push_back("false");
+								value_string = string_table.size() - 1;
+							}
+
 							// start tag
 							encode_uint16(0x102, &p_manifest.write[ofs]); // type
 							encode_uint16(16, &p_manifest.write[ofs + 2]); // headersize
-							encode_uint32(56, &p_manifest.write[ofs + 4]); // size
+							encode_uint32(76, &p_manifest.write[ofs + 4]); // size
 							encode_uint32(0, &p_manifest.write[ofs + 8]); // lineno
 							encode_uint32(-1, &p_manifest.write[ofs + 12]); // comment
 							encode_uint32(-1, &p_manifest.write[ofs + 16]); // ns
 							encode_uint32(attr_uses_permission_string, &p_manifest.write[ofs + 20]); // name
 							encode_uint16(20, &p_manifest.write[ofs + 24]); // attr_start
-							encode_uint16(20, &p_manifest.write[ofs + 26]); // attr_size
-							encode_uint16(1, &p_manifest.write[ofs + 28]); // num_attrs
+							encode_uint16(40, &p_manifest.write[ofs + 26]); // attr_size
+							encode_uint16(2, &p_manifest.write[ofs + 28]); // num_attrs
 							encode_uint16(0, &p_manifest.write[ofs + 30]); // id_index
 							encode_uint16(0, &p_manifest.write[ofs + 32]); // class_index
 							encode_uint16(0, &p_manifest.write[ofs + 34]); // style_index
@@ -910,7 +923,15 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 							p_manifest.write[ofs + 51] = 0x03; // typedvalue_type (string)
 							encode_uint32(perm_string, &p_manifest.write[ofs + 52]); // typedvalue reference
 
-							ofs += 56;
+							encode_uint32(ns_android_string, &p_manifest.write[ofs + 56]); // ns
+							encode_uint32(key_string, &p_manifest.write[ofs + 60]); // 'name'
+							encode_uint32(value_string, &p_manifest.write[ofs + 64]); // raw_value
+							encode_uint16(8, &p_manifest.write[ofs + 68]); // typedvalue_size
+							p_manifest.write[ofs + 70] = 0; // typedvalue_always0
+							p_manifest.write[ofs + 71] = 0x03; // typedvalue_type (string)
+							encode_uint32(value_string, &p_manifest.write[ofs + 72]); // typedvalue reference
+
+							ofs += 76;
 
 							// end tag
 							encode_uint16(0x103, &p_manifest.write[ofs]); // type
@@ -925,6 +946,7 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 						}
 						memcpy(&p_manifest.write[ofs], manifest_end.ptr(), manifest_end.size());
 						print_line("Adding back end...");
+						ofs -= 24;
 					}
 					if (tname == "manifest") {
 
